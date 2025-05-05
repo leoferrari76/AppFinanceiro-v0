@@ -363,11 +363,6 @@ const Login = () => {
             </TabsContent>
           </Tabs>
         </CardContent>
-        <CardFooter className="flex justify-center">
-          <p className="text-sm text-muted-foreground">
-            Demo mode: any credentials will work
-          </p>
-        </CardFooter>
       </Card>
     </div>
   );
