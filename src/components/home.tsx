@@ -23,6 +23,9 @@ interface Transaction {
   amount: number;
   category: string;
   type: "income" | "expense";
+  isRecurring?: boolean;
+  recurringStartDate?: Date;
+  recurringEndDate?: Date;
 }
 
 const Home = () => {

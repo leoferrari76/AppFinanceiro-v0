@@ -39,6 +39,9 @@ interface TransactionData {
   description: string;
   amount: number;
   category: string;
+  isRecurring?: boolean;
+  recurringStartDate?: Date;
+  recurringEndDate?: Date;
 }
 
 const defaultIncomeCategories = [
@@ -56,6 +59,7 @@ const defaultExpenseCategories = [
   { value: "entertainment", label: "Entertainment" },
   { value: "utilities", label: "Utilities" },
   { value: "healthcare", label: "Healthcare" },
+  { value: "recurring", label: "Recurring Payment" },
   { value: "other", label: "Other" },
 ];
 
@@ -70,6 +74,13 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState("");
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurringStartDate, setRecurringStartDate] = useState<Date>(
+    new Date(),
+  );
+  const [recurringEndDate, setRecurringEndDate] = useState<Date>(new Date());
+  const [isStartDateCalendarOpen, setIsStartDateCalendarOpen] = useState(false);
+  const [isEndDateCalendarOpen, setIsEndDateCalendarOpen] = useState(false);
   const [isNewCategoryDialogOpen, setIsNewCategoryDialogOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [incomeCategories, setIncomeCategories] = useState([
@@ -100,6 +111,11 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       description,
       amount: parsedAmount,
       category,
+      isRecurring,
+      ...(isRecurring && {
+        recurringStartDate,
+        recurringEndDate,
+      }),
     };
 
     onSubmit(transactionData);
@@ -108,6 +124,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     setDescription("");
     setAmount("");
     setCategory("");
+    setIsRecurring(false);
   };
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -124,6 +141,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       setIsNewCategoryDialogOpen(true);
     } else {
       setCategory(value);
+      setIsRecurring(value === "recurring");
     }
   };
 
@@ -252,6 +270,88 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Recurring Payment Fields */}
+            {isRecurring && (
+              <div className="space-y-4 border rounded-md p-4 bg-muted/20">
+                <h3 className="font-medium">Recurring Payment Details</h3>
+
+                {/* Start Date */}
+                <div className="space-y-2">
+                  <Label htmlFor="recurringStartDate">Start Date</Label>
+                  <Popover
+                    open={isStartDateCalendarOpen}
+                    onOpenChange={setIsStartDateCalendarOpen}
+                  >
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start text-left font-normal"
+                        id="recurringStartDate"
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {recurringStartDate ? (
+                          format(recurringStartDate, "PPP")
+                        ) : (
+                          <span>Pick a start date</span>
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={recurringStartDate}
+                        onSelect={(newDate) => {
+                          if (newDate) {
+                            setRecurringStartDate(newDate);
+                            setIsStartDateCalendarOpen(false);
+                          }
+                        }}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                {/* End Date */}
+                <div className="space-y-2">
+                  <Label htmlFor="recurringEndDate">End Date</Label>
+                  <Popover
+                    open={isEndDateCalendarOpen}
+                    onOpenChange={setIsEndDateCalendarOpen}
+                  >
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start text-left font-normal"
+                        id="recurringEndDate"
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {recurringEndDate ? (
+                          format(recurringEndDate, "PPP")
+                        ) : (
+                          <span>Pick an end date</span>
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={recurringEndDate}
+                        onSelect={(newDate) => {
+                          if (newDate) {
+                            setRecurringEndDate(newDate);
+                            setIsEndDateCalendarOpen(false);
+                          }
+                        }}
+                        initialFocus
+                        disabled={(date) => date < recurringStartDate}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </div>
+            )}
 
             {/* Submit Button */}
             <Button type="submit" className="w-full">
