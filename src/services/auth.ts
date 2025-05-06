@@ -1,29 +1,30 @@
-// Simple authentication service
+// Authentication service that uses Supabase
+import { supabase } from "../lib/supabase";
 
 /**
- * Check if user is logged in
+ * Check if user is logged in by checking Supabase session
  */
-export const isLoggedIn = (): boolean => {
-  return localStorage.getItem("isLoggedIn") === "true";
+export const isLoggedIn = async (): Promise<boolean> => {
+  const { data } = await supabase.auth.getSession();
+  return !!data.session;
 };
 
 /**
  * Login with username and password
+ * This is a legacy function and should be replaced with AuthContext's signIn
  */
-export const login = (username: string, password: string): boolean => {
-  // In a real app, this would validate credentials against a backend
-  // For now, we'll accept any non-empty username and password
-  if (username && password) {
-    localStorage.setItem("isLoggedIn", "true");
-    return true;
-  }
-  return false;
+export const login = async (
+  email: string,
+  password: string,
+): Promise<boolean> => {
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  return !error;
 };
 
 /**
  * Logout the current user and redirect to login page
  */
-export const logout = (): void => {
-  localStorage.removeItem("isLoggedIn");
+export const logout = async (): Promise<void> => {
+  await supabase.auth.signOut();
   window.location.href = "/login";
 };
