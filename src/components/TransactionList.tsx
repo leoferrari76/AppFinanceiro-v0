@@ -54,48 +54,7 @@ interface TransactionListProps {
 }
 
 const TransactionList = ({
-  transactions = [
-    {
-      id: "1",
-      date: new Date(),
-      category: "Salary",
-      description: "Monthly salary",
-      amount: 3000,
-      type: "income",
-    },
-    {
-      id: "2",
-      date: new Date(),
-      category: "Freelance",
-      description: "Website project",
-      amount: 500,
-      type: "income",
-    },
-    {
-      id: "3",
-      date: new Date(),
-      category: "Housing",
-      description: "Monthly rent",
-      amount: 1200,
-      type: "expense",
-    },
-    {
-      id: "4",
-      date: new Date(),
-      category: "Food",
-      description: "Grocery shopping",
-      amount: 150,
-      type: "expense",
-    },
-    {
-      id: "5",
-      date: new Date(),
-      category: "Transportation",
-      description: "Gas",
-      amount: 60,
-      type: "expense",
-    },
-  ] as Transaction[],
+  transactions = [],
   onEdit = () => {},
   onDelete = () => {},
 }: TransactionListProps) => {

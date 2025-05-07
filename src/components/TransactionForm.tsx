@@ -28,6 +28,9 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { createTransaction } from "@/services/transactions";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "@/components/ui/use-toast";
 
 interface TransactionFormProps {
   onSubmit?: (data: TransactionData) => void;
@@ -39,9 +42,9 @@ interface TransactionData {
   description: string;
   amount: number;
   category: string;
-  isRecurring?: boolean;
-  recurringStartDate?: Date;
-  recurringEndDate?: Date;
+  is_recurring?: boolean;
+  recurring_start_date?: Date;
+  recurring_end_date?: Date;
 }
 
 const defaultIncomeCategories = [
@@ -66,6 +69,7 @@ const defaultExpenseCategories = [
 const TransactionForm: React.FC<TransactionFormProps> = ({
   onSubmit = () => {},
 }) => {
+  const { user } = useAuth();
   const [transactionType, setTransactionType] = useState<"income" | "expense">(
     "income",
   );
@@ -90,41 +94,94 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     ...defaultExpenseCategories,
   ]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('Form submitted', { description, amount, category, transactionType });
 
     // Basic validation
     if (!description || !amount || !category) {
-      // In a real app, you would show validation errors
+      console.log('Validation failed', { description, amount, category });
+      toast({
+        title: "Erro",
+        description: "Por favor, preencha todos os campos obrigatórios",
+        variant: "destructive",
+      });
       return;
     }
 
     const parsedAmount = parseFloat(amount);
     if (isNaN(parsedAmount)) {
-      // Handle invalid amount
+      console.log('Invalid amount', { amount });
+      toast({
+        title: "Erro",
+        description: "Valor inválido",
+        variant: "destructive",
+      });
       return;
     }
 
-    const transactionData: TransactionData = {
-      type: transactionType,
-      date,
-      description,
-      amount: parsedAmount,
-      category,
-      isRecurring,
-      ...(isRecurring && {
-        recurringStartDate,
-        recurringEndDate,
-      }),
-    };
+    if (!user) {
+      console.log('No user found');
+      toast({
+        title: "Erro",
+        description: "Usuário não autenticado",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    onSubmit(transactionData);
+    try {
+      const transactionData = {
+        user_id: user.id,
+        type: transactionType,
+        date: format(date, "yyyy-MM-dd"),
+        description,
+        amount: parsedAmount,
+        category,
+        is_recurring: isRecurring,
+        ...(isRecurring && {
+          recurring_start_date: format(recurringStartDate, "yyyy-MM-dd"),
+          recurring_end_date: format(recurringEndDate, "yyyy-MM-dd"),
+        }),
+      };
 
-    // Reset form
-    setDescription("");
-    setAmount("");
-    setCategory("");
-    setIsRecurring(false);
+      console.log('Creating transaction with data:', transactionData);
+
+      const savedTransaction = await createTransaction(transactionData);
+      console.log('Transaction saved:', savedTransaction);
+      
+      toast({
+        title: "Sucesso",
+        description: "Transação adicionada com sucesso",
+      });
+
+      // Reset form
+      setDescription("");
+      setAmount("");
+      setCategory("");
+      setIsRecurring(false);
+      setDate(new Date());
+      setRecurringStartDate(new Date());
+      setRecurringEndDate(new Date());
+
+      // Call the onSubmit callback if provided
+      if (onSubmit) {
+        console.log('Calling onSubmit callback with:', savedTransaction);
+        onSubmit({
+          ...savedTransaction,
+          date: new Date(savedTransaction.date),
+          recurring_start_date: savedTransaction.recurring_start_date ? new Date(savedTransaction.recurring_start_date) : undefined,
+          recurring_end_date: savedTransaction.recurring_end_date ? new Date(savedTransaction.recurring_end_date) : undefined,
+        });
+      }
+    } catch (error) {
+      console.error("Erro ao salvar transação:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao salvar transação. Tente novamente.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -183,9 +240,10 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         <Tabs
           defaultValue="income"
           value={transactionType}
-          onValueChange={(value) =>
-            setTransactionType(value as "income" | "expense")
-          }
+          onValueChange={(value) => {
+            console.log('Transaction type changed:', value);
+            setTransactionType(value as "income" | "expense");
+          }}
           className="w-full"
         >
           <TabsList className="grid grid-cols-2 mb-4">
@@ -203,6 +261,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                     variant="outline"
                     className="w-full justify-start text-left font-normal"
                     id="date"
+                    type="button"
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {date ? format(date, "PPP") : <span>Pick a date</span>}
@@ -214,6 +273,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                     selected={date}
                     onSelect={(newDate) => {
                       if (newDate) {
+                        console.log('Date selected:', newDate);
                         setDate(newDate);
                         setIsCalendarOpen(false);
                       }
@@ -231,7 +291,10 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                 id="description"
                 placeholder="Enter transaction description"
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                onChange={(e) => {
+                  console.log('Description changed:', e.target.value);
+                  setDescription(e.target.value);
+                }}
                 className="resize-none"
               />
             </div>
@@ -248,7 +311,10 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                   type="text"
                   placeholder="0.00"
                   value={amount}
-                  onChange={handleAmountChange}
+                  onChange={(e) => {
+                    console.log('Amount changed:', e.target.value);
+                    handleAmountChange(e);
+                  }}
                   className="pl-7"
                 />
               </div>
@@ -257,7 +323,13 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
             {/* Category */}
             <div className="space-y-2">
               <Label htmlFor="category">Category</Label>
-              <Select value={category} onValueChange={handleCategoryChange}>
+              <Select 
+                value={category} 
+                onValueChange={(value) => {
+                  console.log('Category changed:', value);
+                  handleCategoryChange(value);
+                }}
+              >
                 <SelectTrigger id="category">
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
@@ -354,7 +426,11 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
             )}
 
             {/* Submit Button */}
-            <Button type="submit" className="w-full">
+            <Button 
+              type="submit" 
+              className="w-full"
+              onClick={() => console.log('Submit button clicked')}
+            >
               Add {transactionType === "income" ? "Income" : "Expense"}
             </Button>
           </form>

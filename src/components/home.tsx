@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { ChevronLeft, ChevronRight, User, LogOut } from "lucide-react";
 import { format } from "date-fns";
 import { Link } from "react-router-dom";
@@ -12,9 +12,12 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 import { logout } from "../services/auth";
+import { useAuth } from "@/contexts/AuthContext";
+import { getTransactions, createTransaction, updateTransaction, deleteTransaction } from "@/services/transactions";
 import MetricsOverview from "./MetricsOverview";
 import TransactionForm from "./TransactionForm";
 import TransactionList from "./TransactionList";
+import { toast } from "@/components/ui/use-toast";
 
 interface Transaction {
   id: string;
@@ -23,65 +26,58 @@ interface Transaction {
   amount: number;
   category: string;
   type: "income" | "expense";
-  isRecurring?: boolean;
-  recurringStartDate?: Date;
-  recurringEndDate?: Date;
+  is_recurring?: boolean;
+  recurring_start_date?: Date;
+  recurring_end_date?: Date;
 }
 
 const Home = () => {
-  // State for current month/year view
-  const [currentDate, setCurrentDate] = useState<Date>(new Date());
+  const { user } = useAuth();
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Mock transactions data
-  const [transactions, setTransactions] = useState<Transaction[]>([
-    {
-      id: "1",
-      date: new Date(),
-      description: "Monthly Salary",
-      amount: 3500,
-      category: "Salary",
-      type: "income",
-    },
-    {
-      id: "2",
-      date: new Date(),
-      description: "Freelance Project",
-      amount: 850,
-      category: "Freelance",
-      type: "income",
-    },
-    {
-      id: "3",
-      date: new Date(),
-      description: "Rent Payment",
-      amount: 1200,
-      category: "Housing",
-      type: "expense",
-    },
-    {
-      id: "4",
-      date: new Date(),
-      description: "Grocery Shopping",
-      amount: 250,
-      category: "Food",
-      type: "expense",
-    },
-    {
-      id: "5",
-      date: new Date(),
-      description: "Internet Bill",
-      amount: 80,
-      category: "Utilities",
-      type: "expense",
-    },
-  ]);
+  // Carregar transações quando o componente montar
+  useEffect(() => {
+    if (user) {
+      loadTransactions();
+    }
+  }, [user]);
+
+  const loadTransactions = async () => {
+    if (!user) return;
+    
+    try {
+      setIsLoading(true);
+      console.log('Loading transactions for user:', user.id);
+      const data = await getTransactions(user.id);
+      console.log('Transactions loaded:', data);
+      
+      const formattedTransactions = data.map(transaction => ({
+        ...transaction,
+        date: new Date(transaction.date),
+        recurring_start_date: transaction.recurring_start_date ? new Date(transaction.recurring_start_date) : undefined,
+        recurring_end_date: transaction.recurring_end_date ? new Date(transaction.recurring_end_date) : undefined,
+      }));
+      
+      setTransactions(formattedTransactions);
+    } catch (error) {
+      console.error('Error loading transactions:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar as transações.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Calculate metrics for the current month
   const currentMonthTransactions = transactions.filter((transaction) => {
     const transactionDate = new Date(transaction.date);
     return (
-      transactionDate.getMonth() === currentDate.getMonth() &&
-      transactionDate.getFullYear() === currentDate.getFullYear()
+      transactionDate.getMonth() === new Date().getMonth() &&
+      transactionDate.getFullYear() === new Date().getFullYear()
     );
   });
 
@@ -97,38 +93,114 @@ const Home = () => {
 
   // Handle month navigation
   const goToPreviousMonth = () => {
-    const prevMonth = new Date(currentDate);
+    const prevMonth = new Date(new Date());
     prevMonth.setMonth(prevMonth.getMonth() - 1);
-    setCurrentDate(prevMonth);
   };
 
   const goToNextMonth = () => {
-    const nextMonth = new Date(currentDate);
+    const nextMonth = new Date(new Date());
     nextMonth.setMonth(nextMonth.getMonth() + 1);
-    setCurrentDate(nextMonth);
   };
 
   // Handle adding new transactions
-  const handleAddTransaction = (newTransaction: Omit<Transaction, "id">) => {
-    const transaction = {
-      ...newTransaction,
-      id: Math.random().toString(36).substring(2, 9), // Simple ID generation
-    };
-    setTransactions([...transactions, transaction]);
+  const handleAddTransaction = async (newTransaction: Omit<Transaction, "id">) => {
+    if (!user) return;
+
+    try {
+      console.log('Adding new transaction:', newTransaction);
+      const transaction = await createTransaction({
+        ...newTransaction,
+        user_id: user.id,
+        date: newTransaction.date.toISOString().split('T')[0],
+        is_recurring: newTransaction.is_recurring || false,
+        recurring_start_date: newTransaction.recurring_start_date?.toISOString().split('T')[0],
+        recurring_end_date: newTransaction.recurring_end_date?.toISOString().split('T')[0],
+      });
+      
+      console.log('Transaction created:', transaction);
+      
+      // Atualizar a lista de transações imediatamente
+      const formattedTransaction = {
+        ...transaction,
+        date: new Date(transaction.date),
+        recurring_start_date: transaction.recurring_start_date ? new Date(transaction.recurring_start_date) : undefined,
+        recurring_end_date: transaction.recurring_end_date ? new Date(transaction.recurring_end_date) : undefined,
+      };
+      
+      setTransactions(prevTransactions => [formattedTransaction, ...prevTransactions]);
+
+      toast({
+        title: "Sucesso",
+        description: "Transação adicionada com sucesso.",
+      });
+    } catch (error) {
+      console.error('Error adding transaction:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível adicionar a transação.",
+        variant: "destructive",
+      });
+    }
   };
 
   // Handle editing transactions
-  const handleEditTransaction = (updatedTransaction: Transaction) => {
-    setTransactions(
-      transactions.map((t) =>
-        t.id === updatedTransaction.id ? updatedTransaction : t,
-      ),
-    );
+  const handleEditTransaction = async (updatedTransaction: Transaction) => {
+    try {
+      const transaction = await updateTransaction(updatedTransaction.id, {
+        ...updatedTransaction,
+        date: updatedTransaction.date.toISOString().split('T')[0],
+        recurring_start_date: updatedTransaction.recurring_start_date?.toISOString().split('T')[0],
+        recurring_end_date: updatedTransaction.recurring_end_date?.toISOString().split('T')[0],
+      });
+
+      // Atualizar a lista de transações imediatamente
+      setTransactions(prevTransactions =>
+        prevTransactions.map((t) =>
+          t.id === updatedTransaction.id
+            ? {
+                ...transaction,
+                date: new Date(transaction.date),
+                recurring_start_date: transaction.recurring_start_date ? new Date(transaction.recurring_start_date) : undefined,
+                recurring_end_date: transaction.recurring_end_date ? new Date(transaction.recurring_end_date) : undefined,
+              }
+            : t
+        )
+      );
+
+      toast({
+        title: "Sucesso",
+        description: "Transação atualizada com sucesso.",
+      });
+    } catch (error) {
+      console.error('Error updating transaction:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível atualizar a transação.",
+        variant: "destructive",
+      });
+    }
   };
 
   // Handle deleting transactions
-  const handleDeleteTransaction = (id: string) => {
-    setTransactions(transactions.filter((t) => t.id !== id));
+  const handleDeleteTransaction = async (id: string) => {
+    try {
+      await deleteTransaction(id);
+      
+      // Atualizar a lista de transações imediatamente
+      setTransactions(prevTransactions => prevTransactions.filter(t => t.id !== id));
+      
+      toast({
+        title: "Sucesso",
+        description: "Transação excluída com sucesso.",
+      });
+    } catch (error) {
+      console.error('Error deleting transaction:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível excluir a transação.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -166,7 +238,7 @@ const Home = () => {
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <h2 className="text-xl font-medium">
-            {format(currentDate, "MMMM yyyy")}
+            {format(new Date(), "MMMM yyyy")}
           </h2>
           <Button variant="outline" size="icon" onClick={goToNextMonth}>
             <ChevronRight className="h-4 w-4" />
