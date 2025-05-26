@@ -34,6 +34,8 @@ import { toast } from "@/components/ui/use-toast";
 
 interface TransactionFormProps {
   onSubmit?: (data: TransactionData) => void;
+  editingTransaction?: TransactionData & { id: string };
+  onCancel?: () => void;
 }
 
 interface TransactionData {
@@ -68,21 +70,25 @@ const defaultExpenseCategories = [
 
 const TransactionForm: React.FC<TransactionFormProps> = ({
   onSubmit = () => {},
+  editingTransaction,
+  onCancel,
 }) => {
   const { user } = useAuth();
   const [transactionType, setTransactionType] = useState<"income" | "expense">(
-    "income",
+    editingTransaction?.type || "income"
   );
-  const [date, setDate] = useState<Date>(new Date());
-  const [description, setDescription] = useState("");
-  const [amount, setAmount] = useState("");
-  const [category, setCategory] = useState("");
+  const [date, setDate] = useState<Date>(editingTransaction?.date || new Date());
+  const [description, setDescription] = useState(editingTransaction?.description || "");
+  const [amount, setAmount] = useState(editingTransaction?.amount.toString() || "");
+  const [category, setCategory] = useState(editingTransaction?.category || "");
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
-  const [isRecurring, setIsRecurring] = useState(false);
+  const [isRecurring, setIsRecurring] = useState(editingTransaction?.is_recurring || false);
   const [recurringStartDate, setRecurringStartDate] = useState<Date>(
-    new Date(),
+    editingTransaction?.recurring_start_date || new Date()
   );
-  const [recurringEndDate, setRecurringEndDate] = useState<Date>(new Date());
+  const [recurringEndDate, setRecurringEndDate] = useState<Date>(
+    editingTransaction?.recurring_end_date || new Date()
+  );
   const [isStartDateCalendarOpen, setIsStartDateCalendarOpen] = useState(false);
   const [isEndDateCalendarOpen, setIsEndDateCalendarOpen] = useState(false);
   const [isNewCategoryDialogOpen, setIsNewCategoryDialogOpen] = useState(false);
@@ -145,14 +151,14 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         }),
       };
 
-      console.log('Creating transaction with data:', transactionData);
+      console.log('Creating/Updating transaction with data:', transactionData);
 
       const savedTransaction = await createTransaction(transactionData);
       console.log('Transaction saved:', savedTransaction);
       
       toast({
         title: "Sucesso",
-        description: "Transação adicionada com sucesso",
+        description: editingTransaction ? "Transação atualizada com sucesso" : "Transação adicionada com sucesso",
       });
 
       // Reset form
@@ -233,7 +239,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     <Card className="w-full max-w-md mx-auto bg-background">
       <CardHeader>
         <CardTitle className="text-xl font-semibold text-center">
-          Nova Transação
+          {editingTransaction ? "Editar Transação" : "Nova Transação"}
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -405,9 +411,16 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
               )}
             </div>
 
-            <Button type="submit" className="w-full">
-              <Plus className="mr-2 h-4 w-4" /> Adicionar Transação
-            </Button>
+            <div className="flex gap-2">
+              <Button type="submit" className="flex-1">
+                {editingTransaction ? "Atualizar" : "Adicionar"}
+              </Button>
+              {editingTransaction && onCancel && (
+                <Button type="button" variant="outline" onClick={onCancel}>
+                  Cancelar
+                </Button>
+              )}
+            </div>
           </form>
         </Tabs>
 

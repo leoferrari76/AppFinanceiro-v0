@@ -18,6 +18,7 @@ import { getTransactions, createTransaction, updateTransaction, deleteTransactio
 import MetricsOverview from "./MetricsOverview";
 import TransactionForm from "./TransactionForm";
 import TransactionList from "./TransactionList";
+import FinancialInsights from "./FinancialInsights";
 import { toast } from "@/components/ui/use-toast";
 
 interface Transaction {
@@ -271,16 +272,14 @@ const Home = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              <div className="flex justify-between items-baseline">
-                <span className="text-2xl font-bold text-green-600">
-                  R$ {selectedMonthIncome.toFixed(2)}
+              <span className="text-2xl font-bold text-green-600">
+                R$ {selectedMonthIncome.toFixed(2)}
+              </span>
+              <div className="flex items-center gap-1 text-sm">
+                <span className={incomeVariation >= 0 ? "text-green-600" : "text-red-600"}>
+                  {incomeVariation >= 0 ? "+" : ""}{incomeVariation.toFixed(1)}%
                 </span>
-                <div className="flex items-center gap-1 text-sm">
-                  <span className={incomeVariation >= 0 ? "text-green-600" : "text-red-600"}>
-                    {incomeVariation >= 0 ? "+" : ""}{incomeVariation.toFixed(1)}%
-                  </span>
-                  <span className="text-muted-foreground">vs mês anterior</span>
-                </div>
+                <span className="text-muted-foreground">vs mês anterior</span>
               </div>
               <div className="text-sm text-muted-foreground">
                 Mês anterior: R$ {previousMonthIncome.toFixed(2)}
@@ -298,16 +297,14 @@ const Home = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              <div className="flex justify-between items-baseline">
-                <span className="text-2xl font-bold text-red-600">
-                  R$ {selectedMonthExpenses.toFixed(2)}
+              <span className="text-2xl font-bold text-red-600">
+                R$ {selectedMonthExpenses.toFixed(2)}
+              </span>
+              <div className="flex items-center gap-1 text-sm">
+                <span className={expensesVariation <= 0 ? "text-green-600" : "text-red-600"}>
+                  {expensesVariation >= 0 ? "+" : ""}{expensesVariation.toFixed(1)}%
                 </span>
-                <div className="flex items-center gap-1 text-sm">
-                  <span className={expensesVariation <= 0 ? "text-green-600" : "text-red-600"}>
-                    {expensesVariation >= 0 ? "+" : ""}{expensesVariation.toFixed(1)}%
-                  </span>
-                  <span className="text-muted-foreground">vs mês anterior</span>
-                </div>
+                <span className="text-muted-foreground">vs mês anterior</span>
               </div>
               <div className="text-sm text-muted-foreground">
                 Mês anterior: R$ {previousMonthExpenses.toFixed(2)}
@@ -325,16 +322,14 @@ const Home = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              <div className="flex justify-between items-baseline">
-                <span className={`text-2xl font-bold ${selectedMonthBalance >= 0 ? "text-green-600" : "text-red-600"}`}>
-                  R$ {selectedMonthBalance.toFixed(2)}
+              <span className={`text-2xl font-bold ${selectedMonthBalance >= 0 ? "text-green-600" : "text-red-600"}`}>
+                R$ {selectedMonthBalance.toFixed(2)}
+              </span>
+              <div className="flex items-center gap-1 text-sm">
+                <span className={balanceVariation >= 0 ? "text-green-600" : "text-red-600"}>
+                  {balanceVariation >= 0 ? "+" : ""}{balanceVariation.toFixed(1)}%
                 </span>
-                <div className="flex items-center gap-1 text-sm">
-                  <span className={balanceVariation >= 0 ? "text-green-600" : "text-red-600"}>
-                    {balanceVariation >= 0 ? "+" : ""}{balanceVariation.toFixed(1)}%
-                  </span>
-                  <span className="text-muted-foreground">vs mês anterior</span>
-                </div>
+                <span className="text-muted-foreground">vs mês anterior</span>
               </div>
               <div className="text-sm text-muted-foreground">
                 Mês anterior: R$ {previousMonthBalance.toFixed(2)}
@@ -343,6 +338,11 @@ const Home = () => {
           </CardContent>
         </Card>
       </div>
+
+      <FinancialInsights
+        transactions={transactions}
+        selectedDate={selectedDate}
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="md:col-span-1">
