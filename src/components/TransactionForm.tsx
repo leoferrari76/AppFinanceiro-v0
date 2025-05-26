@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { Calendar as CalendarIcon, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -31,11 +31,26 @@ import {
 import { createTransaction } from "@/services/transactions";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/components/ui/use-toast";
+import { getFinancialGroups } from "@/services/financialGroups";
+import { Switch } from "@/components/ui/switch";
+
+interface Transaction {
+  id: string;
+  user_id: string;
+  type: "income" | "expense";
+  description: string;
+  amount: number;
+  category: string;
+  date: Date;
+  is_recurring?: boolean;
+  recurring_start_date?: Date;
+  recurring_end_date?: Date;
+  group_id?: string;
+}
 
 interface TransactionFormProps {
-  onSubmit?: (data: TransactionData) => void;
-  editingTransaction?: TransactionData & { id: string };
-  onCancel?: () => void;
+  onTransactionAdded: (transaction: Omit<Transaction, "id">) => Promise<void>;
+  defaultDate?: Date;
 }
 
 interface TransactionData {
@@ -47,6 +62,7 @@ interface TransactionData {
   is_recurring?: boolean;
   recurring_start_date?: Date;
   recurring_end_date?: Date;
+  group_id?: string;
 }
 
 const defaultIncomeCategories = [
@@ -69,26 +85,21 @@ const defaultExpenseCategories = [
 ];
 
 const TransactionForm: React.FC<TransactionFormProps> = ({
-  onSubmit = () => {},
-  editingTransaction,
-  onCancel,
+  onTransactionAdded,
+  defaultDate = new Date(),
 }) => {
   const { user } = useAuth();
   const [transactionType, setTransactionType] = useState<"income" | "expense">(
-    editingTransaction?.type || "income"
+    "income"
   );
-  const [date, setDate] = useState<Date>(editingTransaction?.date || new Date());
-  const [description, setDescription] = useState(editingTransaction?.description || "");
-  const [amount, setAmount] = useState(editingTransaction?.amount.toString() || "");
-  const [category, setCategory] = useState(editingTransaction?.category || "");
+  const [date, setDate] = useState<Date>(defaultDate);
+  const [description, setDescription] = useState("");
+  const [amount, setAmount] = useState("");
+  const [category, setCategory] = useState("");
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
-  const [isRecurring, setIsRecurring] = useState(editingTransaction?.is_recurring || false);
-  const [recurringStartDate, setRecurringStartDate] = useState<Date>(
-    editingTransaction?.recurring_start_date || new Date()
-  );
-  const [recurringEndDate, setRecurringEndDate] = useState<Date>(
-    editingTransaction?.recurring_end_date || new Date()
-  );
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurringStartDate, setRecurringStartDate] = useState<Date>(new Date());
+  const [recurringEndDate, setRecurringEndDate] = useState<Date>(new Date());
   const [isStartDateCalendarOpen, setIsStartDateCalendarOpen] = useState(false);
   const [isEndDateCalendarOpen, setIsEndDateCalendarOpen] = useState(false);
   const [isNewCategoryDialogOpen, setIsNewCategoryDialogOpen] = useState(false);
@@ -99,10 +110,28 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   const [expenseCategories, setExpenseCategories] = useState([
     ...defaultExpenseCategories,
   ]);
+  const [selectedGroup, setSelectedGroup] = useState<string>("");
+  const [groups, setGroups] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (user) {
+      loadGroups();
+    }
+  }, [user]);
+
+  const loadGroups = async () => {
+    if (!user) return;
+    try {
+      const data = await getFinancialGroups(user.id);
+      setGroups(data);
+    } catch (error) {
+      console.error('Erro ao carregar grupos:', error);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Form submitted', { description, amount, category, transactionType });
+    console.log('Form submitted', { description, amount, category, transactionType, selectedGroup });
 
     // Basic validation
     if (!description || !amount || !category) {
@@ -139,6 +168,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     try {
       const transactionData = {
         user_id: user.id,
+        group_id: selectedGroup === "no_group" ? null : selectedGroup,
         type: transactionType,
         date: format(date, "yyyy-MM-dd"),
         description,
@@ -158,7 +188,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       
       toast({
         title: "Sucesso",
-        description: editingTransaction ? "Transação atualizada com sucesso" : "Transação adicionada com sucesso",
+        description: "Transação adicionada com sucesso",
       });
 
       // Reset form
@@ -169,13 +199,20 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       setDate(new Date());
       setRecurringStartDate(new Date());
       setRecurringEndDate(new Date());
+      setSelectedGroup("");
 
       // Call the onSubmit callback if provided
-      if (onSubmit) {
+      if (onTransactionAdded) {
         console.log('Calling onSubmit callback with:', savedTransaction);
-        onSubmit({
-          ...savedTransaction,
+        await onTransactionAdded({
+          user_id: savedTransaction.user_id,
+          group_id: savedTransaction.group_id,
+          type: savedTransaction.type,
           date: new Date(savedTransaction.date),
+          description: savedTransaction.description,
+          amount: savedTransaction.amount,
+          category: savedTransaction.category,
+          is_recurring: savedTransaction.is_recurring,
           recurring_start_date: savedTransaction.recurring_start_date ? new Date(savedTransaction.recurring_start_date) : undefined,
           recurring_end_date: savedTransaction.recurring_end_date ? new Date(savedTransaction.recurring_end_date) : undefined,
         });
@@ -202,32 +239,24 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   const handleCategoryChange = (value: string) => {
     if (value === "other") {
       setIsNewCategoryDialogOpen(true);
-    } else {
-      setCategory(value);
-      setIsRecurring(value === "recurring");
+      return;
     }
+    setCategory(value);
+    setIsRecurring(value === "recurring");
   };
 
   const handleAddNewCategory = () => {
     if (!newCategoryName.trim()) return;
 
     const newCategory = {
-      value: newCategoryName.toLowerCase().replace(/\s+/g, "-"),
-      label: newCategoryName.trim(),
+      value: newCategoryName.toLowerCase().replace(/\s+/g, '_'),
+      label: newCategoryName
     };
 
     if (transactionType === "income") {
-      setIncomeCategories((prev) => [
-        ...prev.filter((cat) => cat.value !== "other"),
-        newCategory,
-        { value: "other", label: "Outro" },
-      ]);
+      setIncomeCategories(prev => [...prev, newCategory]);
     } else {
-      setExpenseCategories((prev) => [
-        ...prev.filter((cat) => cat.value !== "other"),
-        newCategory,
-        { value: "other", label: "Outro" },
-      ]);
+      setExpenseCategories(prev => [...prev, newCategory]);
     }
 
     setCategory(newCategory.value);
@@ -239,7 +268,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     <Card className="w-full max-w-md mx-auto bg-background">
       <CardHeader>
         <CardTitle className="text-xl font-semibold text-center">
-          {editingTransaction ? "Editar Transação" : "Nova Transação"}
+          {"Nova Transação"}
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -409,17 +438,32 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                   </div>
                 </div>
               )}
+
+              <div className="space-y-2">
+                <Label>Grupo Financeiro (opcional)</Label>
+                <Select
+                  value={selectedGroup}
+                  onValueChange={setSelectedGroup}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um grupo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="no_group">Nenhum grupo</SelectItem>
+                    {groups.map((group) => (
+                      <SelectItem key={group.id} value={group.id}>
+                        {group.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="flex gap-2">
               <Button type="submit" className="flex-1">
-                {editingTransaction ? "Atualizar" : "Adicionar"}
+                {"Adicionar"}
               </Button>
-              {editingTransaction && onCancel && (
-                <Button type="button" variant="outline" onClick={onCancel}>
-                  Cancelar
-                </Button>
-              )}
             </div>
           </form>
         </Tabs>

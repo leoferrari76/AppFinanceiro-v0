@@ -11,38 +11,41 @@ import {
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { UserPlus } from "lucide-react";
+import { useAuth } from "../contexts/AuthContext";
 
 const Register = () => {
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const navigate = useNavigate();
+  const { signUp } = useAuth();
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
-    // Simple validation
-    if (!username || !password || !confirmPassword) {
-      setError("Please fill in all fields");
+    // Validação básica
+    if (!email || !password || !confirmPassword) {
+      setError("Por favor, preencha todos os campos");
       return;
     }
 
     if (password !== confirmPassword) {
-      setError("Passwords do not match");
+      setError("As senhas não coincidem");
       return;
     }
 
     if (password.length < 6) {
-      setError("Password must be at least 6 characters long");
+      setError("A senha deve ter pelo menos 6 caracteres");
       return;
     }
 
-    // In a real app, this would send the registration data to a backend
-    // For now, we'll just simulate a successful registration
-    localStorage.setItem("isLoggedIn", "true");
-    navigate("/");
+    try {
+      await signUp(email, password, () => navigate("/login"));
+    } catch (error) {
+      setError("Ocorreu um erro inesperado. Por favor, tente novamente.");
+    }
   };
 
   return (
@@ -50,7 +53,7 @@ const Register = () => {
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold text-center">
-            Create an Account
+            Criar uma Conta
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -61,44 +64,45 @@ const Register = () => {
               </div>
             )}
             <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
+              <Label htmlFor="email">Email</Label>
               <Input
-                id="username"
-                placeholder="Choose a username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                id="email"
+                type="email"
+                placeholder="Digite seu email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">Senha</Label>
               <Input
                 id="password"
                 type="password"
-                placeholder="Choose a password"
+                placeholder="Digite sua senha"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm Password</Label>
+              <Label htmlFor="confirmPassword">Confirmar Senha</Label>
               <Input
                 id="confirmPassword"
                 type="password"
-                placeholder="Confirm your password"
+                placeholder="Confirme sua senha"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
               />
             </div>
             <Button type="submit" className="w-full">
-              <UserPlus className="mr-2 h-4 w-4" /> Register
+              <UserPlus className="mr-2 h-4 w-4" /> Registrar
             </Button>
           </form>
         </CardContent>
         <CardFooter className="flex justify-center">
           <p className="text-sm text-muted-foreground">
-            Already have an account?{" "}
+            Já tem uma conta?{" "}
             <Link to="/login" className="text-primary hover:underline">
-              Sign in
+              Entrar
             </Link>
           </p>
         </CardFooter>

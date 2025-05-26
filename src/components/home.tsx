@@ -1,25 +1,41 @@
 import React, { useState, useEffect } from "react";
-import { ChevronLeft, ChevronRight, User, LogOut } from "lucide-react";
-import { format, subMonths, addMonths, isSameMonth } from "date-fns";
+import { ChevronLeft, ChevronRight, User, LogOut, Calendar as CalendarIcon, Search, Users } from "lucide-react";
+import { format, subMonths, addMonths, isSameMonth, startOfMonth, endOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Link } from "react-router-dom";
-
-import { Button } from "./ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Link, useNavigate } from "react-router-dom";
+import { Calendar } from "@/components/ui/calendar";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "./ui/dropdown-menu";
-import { logout } from "../services/auth";
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import TransactionForm from "@/components/TransactionForm";
+import TransactionList from "@/components/TransactionList";
+import FinancialInsights from "./FinancialInsights";
+import { toast } from "@/components/ui/use-toast";
+import FinancialGroup from "@/components/FinancialGroup";
 import { useAuth } from "@/contexts/AuthContext";
 import { getTransactions, createTransaction, updateTransaction, deleteTransaction } from "@/services/transactions";
 import MetricsOverview from "./MetricsOverview";
-import TransactionForm from "./TransactionForm";
-import TransactionList from "./TransactionList";
-import FinancialInsights from "./FinancialInsights";
-import { toast } from "@/components/ui/use-toast";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface Transaction {
   id: string;
@@ -34,28 +50,57 @@ interface Transaction {
 }
 
 const Home = () => {
-  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { user, loading: authLoading, signOut } = useAuth();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const isCurrentMonth = isSameMonth(selectedDate, new Date());
 
   // Carregar transações quando o componente montar
   useEffect(() => {
-    if (user) {
+    console.log('Home: Estado de autenticação:', { user: !!user, authLoading });
+    
+    if (!authLoading && user) {
+      console.log('Home: Usuário autenticado, carregando transações');
       loadTransactions();
     }
-  }, [user]);
+  }, [user, authLoading]);
+
+  // Se ainda estiver carregando a autenticação, mostrar loading
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p>Carregando autenticação...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Se não estiver autenticado, não renderizar nada
+  if (!user) {
+    return null;
+  }
 
   const loadTransactions = async () => {
     if (!user) return;
     
     try {
       setIsLoading(true);
-      console.log('Loading transactions for user:', user.id);
+      console.log('Home: Carregando transações para o usuário:', user.id);
       const data = await getTransactions(user.id);
-      console.log('Transactions loaded:', data);
+      console.log('Home: Transações carregadas:', data);
+      
+      if (!data) {
+        console.log('Home: Nenhuma transação encontrada');
+        setTransactions([]);
+        return;
+      }
       
       const formattedTransactions = data.map(transaction => ({
         ...transaction,
@@ -66,12 +111,13 @@ const Home = () => {
       
       setTransactions(formattedTransactions);
     } catch (error) {
-      console.error('Error loading transactions:', error);
+      console.error('Home: Erro ao carregar transações:', error);
       toast({
         title: "Erro",
         description: "Não foi possível carregar as transações.",
         variant: "destructive",
       });
+      setTransactions([]);
     } finally {
       setIsLoading(false);
     }
@@ -236,127 +282,208 @@ const Home = () => {
     return new Date(b.date).getTime() - new Date(a.date).getTime();
   });
 
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    }).format(amount);
+  };
+
+  // Agrupar transações por categoria
+  const getCategoryTotals = (type: "income" | "expense") => {
+    return selectedMonthTransactions
+      .filter(t => t.type === type)
+      .reduce((acc, transaction) => {
+        const category = transaction.category;
+        if (!acc[category]) {
+          acc[category] = 0;
+        }
+        acc[category] += transaction.amount;
+        return acc;
+      }, {} as Record<string, number>);
+  };
+
+  const incomeByCategory = getCategoryTotals("income");
+  const expensesByCategory = getCategoryTotals("expense");
+
+  const handleLogout = async () => {
+    try {
+      await signOut(() => navigate("/login"));
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   return (
-    <div className="container mx-auto p-4 space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Dashboard</h1>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={goToPreviousMonth}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <span className="font-medium">
-            {format(selectedDate, "MMMM 'de' yyyy", { locale: ptBR })}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={goToNextMonth}
-            disabled={isCurrentMonth}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
+    <div className="container mx-auto p-4 space-y-8 bg-background min-h-screen">
+      {isLoading ? (
+        <div className="flex items-center justify-center p-8">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p>Carregando transações...</p>
+          </div>
         </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Receitas */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Receitas
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <span className="text-2xl font-bold text-green-600">
-                R$ {selectedMonthIncome.toFixed(2)}
-              </span>
-              <div className="flex items-center gap-1 text-sm">
-                <span className={incomeVariation >= 0 ? "text-green-600" : "text-red-600"}>
-                  {incomeVariation >= 0 ? "+" : ""}{incomeVariation.toFixed(1)}%
-                </span>
-                <span className="text-muted-foreground">vs mês anterior</span>
+      ) : (
+        <>
+          <div className="flex justify-between items-center">
+            <h1 className="text-3xl font-bold">Finanças Pessoais</h1>
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar transações..."
+                  className="pl-8"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
               </div>
-              <div className="text-sm text-muted-foreground">
-                Mês anterior: R$ {previousMonthIncome.toFixed(2)}
-              </div>
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={() => setIsCalendarOpen(true)}
+              >
+                <CalendarIcon className="h-4 w-4" />
+                {format(selectedDate, "MMMM yyyy", { locale: ptBR })}
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon">
+                    <User className="h-5 w-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>Minha Conta</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link to="/profile" className="cursor-pointer">
+                      <User className="mr-2 h-4 w-4" />
+                      Perfil
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={handleLogout}
+                    className="text-red-600 cursor-pointer"
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Sair
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
-          </CardContent>
-        </Card>
+          </div>
 
-        {/* Despesas */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Despesas
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <span className="text-2xl font-bold text-red-600">
-                R$ {selectedMonthExpenses.toFixed(2)}
-              </span>
-              <div className="flex items-center gap-1 text-sm">
-                <span className={expensesVariation <= 0 ? "text-green-600" : "text-red-600"}>
-                  {expensesVariation >= 0 ? "+" : ""}{expensesVariation.toFixed(1)}%
-                </span>
-                <span className="text-muted-foreground">vs mês anterior</span>
-              </div>
-              <div className="text-sm text-muted-foreground">
-                Mês anterior: R$ {previousMonthExpenses.toFixed(2)}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+          <Tabs defaultValue="personal" className="space-y-4">
+            <TabsList>
+              <TabsTrigger value="personal" className="gap-2">
+                <CalendarIcon className="h-4 w-4" />
+                Pessoal
+              </TabsTrigger>
+              <TabsTrigger value="shared" className="gap-2">
+                <Users className="h-4 w-4" />
+                Compartilhado
+              </TabsTrigger>
+            </TabsList>
 
-        {/* Saldo */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Saldo
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <span className={`text-2xl font-bold ${selectedMonthBalance >= 0 ? "text-green-600" : "text-red-600"}`}>
-                R$ {selectedMonthBalance.toFixed(2)}
-              </span>
-              <div className="flex items-center gap-1 text-sm">
-                <span className={balanceVariation >= 0 ? "text-green-600" : "text-red-600"}>
-                  {balanceVariation >= 0 ? "+" : ""}{balanceVariation.toFixed(1)}%
-                </span>
-                <span className="text-muted-foreground">vs mês anterior</span>
-              </div>
-              <div className="text-sm text-muted-foreground">
-                Mês anterior: R$ {previousMonthBalance.toFixed(2)}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+            <TabsContent value="personal" className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">
+                      Receitas do Mês
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-green-600">
+                      {formatCurrency(selectedMonthIncome)}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {incomeVariation > 0 ? "+" : ""}
+                      {incomeVariation.toFixed(1)}% em relação ao mês anterior
+                    </p>
+                  </CardContent>
+                </Card>
 
-      <FinancialInsights
-        transactions={transactions}
-        selectedDate={selectedDate}
-      />
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">
+                      Despesas do Mês
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-red-600">
+                      {formatCurrency(selectedMonthExpenses)}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {expensesVariation > 0 ? "+" : ""}
+                      {expensesVariation.toFixed(1)}% em relação ao mês anterior
+                    </p>
+                  </CardContent>
+                </Card>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-1">
-          <TransactionForm onSubmit={handleAddTransaction} />
-        </div>
-        <div className="md:col-span-2">
-          <TransactionList
-            transactions={combinedTransactions}
-            onEdit={handleEditTransaction}
-            onDelete={handleDeleteTransaction}
-            selectedDate={selectedDate}
-          />
-        </div>
-      </div>
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">
+                      Saldo do Mês
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div
+                      className={`text-2xl font-bold ${
+                        selectedMonthBalance >= 0 ? "text-green-600" : "text-red-600"
+                      }`}
+                    >
+                      {formatCurrency(selectedMonthBalance)}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {balanceVariation > 0 ? "+" : ""}
+                      {balanceVariation.toFixed(1)}% em relação ao mês anterior
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">
+                      Total de Transações
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">
+                      {selectedMonthTransactions.length}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <FinancialInsights
+                transactions={transactions}
+                selectedDate={selectedDate}
+              />
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <div className="lg:col-span-1">
+                  <TransactionForm
+                    onTransactionAdded={handleAddTransaction}
+                    defaultDate={selectedDate}
+                  />
+                </div>
+                <div className="lg:col-span-2">
+                  <TransactionList
+                    transactions={selectedMonthTransactions}
+                    onTransactionDeleted={handleDeleteTransaction}
+                    onTransactionUpdated={handleEditTransaction}
+                    selectedDate={selectedDate}
+                  />
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="shared" className="space-y-4">
+              <FinancialGroup userId={user?.id} />
+            </TabsContent>
+          </Tabs>
+        </>
+      )}
     </div>
   );
 };

@@ -94,18 +94,18 @@ interface TransactionData extends Omit<Transaction, 'id'> {
 }
 
 interface TransactionListProps {
-  transactions?: Transaction[];
-  onEdit?: (transaction: Transaction) => void;
-  onDelete?: (id: string) => void;
+  transactions: Transaction[];
+  onTransactionDeleted: (id: string) => Promise<void>;
+  onTransactionUpdated: (transaction: Transaction) => Promise<void>;
   selectedDate: Date;
 }
 
-const TransactionList = ({
-  transactions = [],
-  onEdit = () => {},
-  onDelete = () => {},
+const TransactionList: React.FC<TransactionListProps> = ({
+  transactions,
+  onTransactionDeleted,
+  onTransactionUpdated,
   selectedDate,
-}: TransactionListProps) => {
+}) => {
   const [sortField, setSortField] = useState<keyof Transaction>("date");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [filterType, setFilterType] = useState<"all" | "income" | "expense">(
@@ -116,7 +116,7 @@ const TransactionList = ({
     useState<Transaction | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
@@ -203,15 +203,15 @@ const TransactionList = ({
     setDetailsDialogOpen(true);
   };
 
-  const handleEditClick = (transaction: Transaction) => {
-    setDetailsDialogOpen(false);
-    setIsEditing(true);
-    setSelectedTransaction(transaction);
-  };
-
-  const handleCancelEdit = () => {
-    setIsEditing(false);
-    setSelectedTransaction(null);
+  const handleEditTransaction = async (updatedTransaction: Omit<Transaction, "id">) => {
+    if (selectedTransaction) {
+      await onTransactionUpdated({
+        ...updatedTransaction,
+        id: selectedTransaction.id,
+      });
+      setEditDialogOpen(false);
+      if (detailsDialogOpen) setDetailsDialogOpen(false);
+    }
   };
 
   const handleDeleteClick = (transaction: Transaction) => {
@@ -221,7 +221,7 @@ const TransactionList = ({
 
   const confirmDelete = () => {
     if (selectedTransaction) {
-      onDelete(selectedTransaction.id);
+      onTransactionDeleted(selectedTransaction.id);
       setDeleteDialogOpen(false);
       if (detailsDialogOpen) setDetailsDialogOpen(false);
     }
@@ -310,18 +310,10 @@ const TransactionList = ({
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {isEditing && selectedTransaction ? (
+          {isRecurring && selectedTransaction ? (
             <TransactionForm
-              onSubmit={(updatedTransaction) => {
-                onEdit({
-                  ...updatedTransaction,
-                  id: selectedTransaction.id,
-                });
-                setIsEditing(false);
-                setSelectedTransaction(null);
-              }}
-              onCancel={handleCancelEdit}
-              editingTransaction={selectedTransaction}
+              onTransactionAdded={handleEditTransaction}
+              defaultDate={selectedTransaction.date}
             />
           ) : (
             <Accordion type="multiple" className="w-full">
@@ -432,7 +424,7 @@ const TransactionList = ({
           {selectedTransaction && (
             <form onSubmit={(e) => {
               e.preventDefault();
-              onEdit({
+              onTransactionUpdated({
                 ...selectedTransaction,
                 date: date,
                 description: description,

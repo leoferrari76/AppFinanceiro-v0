@@ -8,7 +8,7 @@ export interface Transaction {
   description: string;
   amount: number;
   category: string;
-  is_recurring: boolean;
+  is_recurring?: boolean;
   recurring_start_date?: string;
   recurring_end_date?: string;
   created_at?: string;
@@ -28,7 +28,7 @@ export const createTransaction = async (transaction: Omit<Transaction, "id" | "c
 
     const transactionData = {
       ...transaction,
-      is_recurring: Boolean(transaction.is_recurring),
+      is_recurring: transaction.is_recurring || false,
       type: transaction.type.toLowerCase() as "income" | "expense",
       amount: Number(transaction.amount)
     };
@@ -57,6 +57,11 @@ export const createTransaction = async (transaction: Omit<Transaction, "id" | "c
 export const getTransactions = async (userId: string) => {
   console.log('Fetching transactions for user:', userId);
   try {
+    if (!userId) {
+      console.error('Error: userId is required');
+      throw new Error('User ID is required');
+    }
+
     const { data, error } = await supabase
       .from("transactions")
       .select("*")
@@ -68,7 +73,12 @@ export const getTransactions = async (userId: string) => {
       throw error;
     }
 
-    console.log('Transactions fetched successfully:', data);
+    if (!data) {
+      console.log('No transactions found for user:', userId);
+      return [];
+    }
+
+    console.log('Transactions fetched successfully:', data.length);
     return data;
   } catch (error) {
     console.error('Error in getTransactions:', error);

@@ -22,7 +22,13 @@ const Login = () => {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, loading: authLoading, user } = useAuth();
+
+  useEffect(() => {
+    if (user) {
+      navigate('/', { replace: true });
+    }
+  }, [user, navigate]);
 
   // Registration state
   const [fullName, setFullName] = useState("");
@@ -75,27 +81,22 @@ const Login = () => {
     setError("");
     setIsLoading(true);
 
+    console.log('Login: Iniciando processo de login');
+
     // Simple validation
     if (!email || !password) {
-      setError("Please enter both email and password");
+      setError("Por favor, preencha email e senha");
       setIsLoading(false);
       return;
     }
 
     try {
-      const { error: signInError } = await signIn(email, password);
-
-      if (signInError) {
-        setError(signInError.message);
-        setIsLoading(false);
-        return;
-      }
-
-      // If successful, the auth state will update and redirect in App.tsx
-      navigate("/");
-    } catch (err) {
-      setError("An unexpected error occurred. Please try again.");
-      console.error("Login error:", err);
+      console.log('Login: Tentando autenticar usuário');
+      await signIn(email, password);
+      console.log('Login: Autenticação bem-sucedida');
+    } catch (error: any) {
+      console.error('Login: Erro durante autenticação:', error);
+      setError(error.message || "Ocorreu um erro inesperado. Por favor, tente novamente.");
     } finally {
       setIsLoading(false);
     }
@@ -109,7 +110,7 @@ const Login = () => {
 
     // Validate all fields are filled
     if (!fullName || !registerEmail || !registerPassword) {
-      setRegisterError("Please fill in all required fields");
+      setRegisterError("Por favor, preencha todos os campos obrigatórios");
       setIsRegisterLoading(false);
       return;
     }
@@ -117,7 +118,7 @@ const Login = () => {
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(registerEmail)) {
-      setRegisterError("Please enter a valid email address");
+      setRegisterError("Por favor, digite um email válido");
       setIsRegisterLoading(false);
       return;
     }
@@ -138,77 +139,65 @@ const Login = () => {
       !hasNumber ||
       !hasSpecial
     ) {
-      setRegisterError("Password does not meet all requirements");
+      setRegisterError("A senha não atende a todos os requisitos");
       setIsRegisterLoading(false);
       return;
     }
 
     // Validate passwords match if confirm password is provided
     if (confirmPassword && !passwordsMatch) {
-      setRegisterError("Passwords do not match");
+      setRegisterError("As senhas não coincidem");
       setIsRegisterLoading(false);
       return;
     }
 
     try {
-      const { error: signUpError } = await signUp(
-        registerEmail,
-        registerPassword,
-        { full_name: fullName },
-      );
+      await signUp(registerEmail, registerPassword, () => {
+        // Se o registro for bem-sucedido, mostrar mensagem de confirmação
+        setRegisterError(
+          "Registro realizado com sucesso! Você já pode fazer login com suas credenciais."
+        );
 
-      if (signUpError) {
-        setRegisterError(signUpError.message);
-        setIsRegisterLoading(false);
-        return;
-      }
+        // Limpar o formulário de registro
+        setFullName("");
+        setRegisterEmail("");
+        setRegisterPassword("");
+        setConfirmPassword("");
 
-      // If successful, show confirmation message and allow immediate login
-      setRegisterError(
-        "Registration successful! You can now log in with your credentials.",
-      );
-
-      // Clear registration form and switch to login tab
-      setFullName("");
-      setRegisterEmail("");
-      setRegisterPassword("");
-      setConfirmPassword("");
-
-      // Auto-switch to login tab
-      document
-        .querySelector('[value="login"]')
-        ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-      // You could also automatically switch to the login tab here
-    } catch (err) {
-      setRegisterError("An unexpected error occurred. Please try again.");
-      console.error("Registration error:", err);
+        // Mudar para a aba de login
+        document
+          .querySelector('[value="login"]')
+          ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+    } catch (error: any) {
+      setRegisterError(error.message || "Ocorreu um erro inesperado. Por favor, tente novamente.");
     } finally {
       setIsRegisterLoading(false);
     }
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-background p-4">
-      <Card className="w-full max-w-md">
+    <div className="flex items-center justify-center min-h-screen bg-background">
+      <Card className="w-full max-w-md bg-card text-card-foreground">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold text-center">
-            Welcome
+            Bem-vindo
           </CardTitle>
           <CardDescription className="text-center">
-            Sign in to your account or create a new one
+            Entre na sua conta ou crie uma nova
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="login" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="login">Login</TabsTrigger>
-              <TabsTrigger value="register">Register</TabsTrigger>
+              <TabsTrigger value="register">Registrar</TabsTrigger>
             </TabsList>
 
             <TabsContent value="login" className="mt-4">
               <form onSubmit={handleLogin} className="space-y-4">
                 {error && (
-                  <div className="p-3 text-sm bg-red-100 border border-red-400 text-red-700 rounded">
+                  <div className="p-3 text-sm bg-destructive/10 border border-destructive text-destructive rounded">
                     {error}
                   </div>
                 )}
@@ -217,51 +206,40 @@ const Login = () => {
                   <Input
                     id="email"
                     type="email"
-                    placeholder="Enter your email"
+                    placeholder="seu@email.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    disabled={isLoading}
+                    disabled={isLoading || authLoading}
+                    required
+                    className="bg-background"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
+                  <Label htmlFor="password">Senha</Label>
                   <Input
                     id="password"
                     type="password"
-                    placeholder="Enter your password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    disabled={isLoading}
+                    disabled={isLoading || authLoading}
+                    required
+                    className="bg-background"
                   />
                 </div>
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? (
-                    <span className="flex items-center">
-                      <svg
-                        className="animate-spin -ml-1 mr-3 h-4 w-4 text-white"
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                      >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        ></circle>
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        ></path>
-                      </svg>
-                      Signing In...
-                    </span>
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={isLoading || authLoading}
+                >
+                  {(isLoading || authLoading) ? (
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Carregando...</span>
+                    </div>
                   ) : (
                     <>
-                      <LogIn className="mr-2 h-4 w-4" /> Sign In
+                      <LogIn className="w-4 h-4 mr-2" />
+                      Entrar
                     </>
                   )}
                 </Button>
@@ -272,7 +250,11 @@ const Login = () => {
               <form onSubmit={handleRegister} className="space-y-4">
                 {registerError && (
                   <div
-                    className={`p-3 text-sm rounded ${registerError.includes("successful") ? "bg-green-100 border border-green-400 text-green-700" : "bg-red-100 border border-red-400 text-red-700"}`}
+                    className={`p-3 text-sm rounded ${
+                      registerError.includes("sucesso")
+                        ? "bg-green-100 border border-green-400 text-green-700"
+                        : "bg-red-100 border border-red-400 text-red-700"
+                    }`}
                   >
                     {registerError}
                   </div>

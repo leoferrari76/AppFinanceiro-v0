@@ -2,6 +2,7 @@
 CREATE TABLE IF NOT EXISTS public.transactions (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id UUID REFERENCES auth.users(id) NOT NULL,
+  group_id UUID REFERENCES public.financial_groups(id),
   type TEXT NOT NULL CHECK (type IN ('income', 'expense')),
   date DATE NOT NULL,
   description TEXT NOT NULL,
@@ -23,20 +24,64 @@ CREATE POLICY "Users can view their own transactions"
   FOR SELECT
   USING (auth.uid() = user_id);
 
+CREATE POLICY "Users can view group transactions"
+  ON public.transactions
+  FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM group_members gm
+      WHERE gm.group_id = transactions.group_id
+      AND gm.user_id = auth.uid()
+    )
+  );
+
 CREATE POLICY "Users can insert their own transactions"
   ON public.transactions
   FOR INSERT
   WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert group transactions"
+  ON public.transactions
+  FOR INSERT
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM group_members gm
+      WHERE gm.group_id = transactions.group_id
+      AND gm.user_id = auth.uid()
+    )
+  );
 
 CREATE POLICY "Users can update their own transactions"
   ON public.transactions
   FOR UPDATE
   USING (auth.uid() = user_id);
 
+CREATE POLICY "Users can update group transactions"
+  ON public.transactions
+  FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1 FROM group_members gm
+      WHERE gm.group_id = transactions.group_id
+      AND gm.user_id = auth.uid()
+    )
+  );
+
 CREATE POLICY "Users can delete their own transactions"
   ON public.transactions
   FOR DELETE
   USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete group transactions"
+  ON public.transactions
+  FOR DELETE
+  USING (
+    EXISTS (
+      SELECT 1 FROM group_members gm
+      WHERE gm.group_id = transactions.group_id
+      AND gm.user_id = auth.uid()
+    )
+  );
 
 -- Set up realtime
 ALTER PUBLICATION supabase_realtime ADD TABLE public.transactions;
