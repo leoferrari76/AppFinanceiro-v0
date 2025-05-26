@@ -48,22 +48,22 @@ interface TransactionData {
 }
 
 const defaultIncomeCategories = [
-  { value: "salary", label: "Salary" },
+  { value: "salary", label: "Salário" },
   { value: "freelance", label: "Freelance" },
-  { value: "investment", label: "Investment" },
-  { value: "gift", label: "Gift" },
-  { value: "other", label: "Other" },
+  { value: "investment", label: "Investimento" },
+  { value: "gift", label: "Presente" },
+  { value: "other", label: "Outro" },
 ];
 
 const defaultExpenseCategories = [
-  { value: "housing", label: "Housing" },
-  { value: "food", label: "Food" },
-  { value: "transportation", label: "Transportation" },
-  { value: "entertainment", label: "Entertainment" },
-  { value: "utilities", label: "Utilities" },
-  { value: "healthcare", label: "Healthcare" },
-  { value: "recurring", label: "Recurring Payment" },
-  { value: "other", label: "Other" },
+  { value: "housing", label: "Moradia" },
+  { value: "food", label: "Alimentação" },
+  { value: "transportation", label: "Transporte" },
+  { value: "entertainment", label: "Lazer" },
+  { value: "utilities", label: "Contas" },
+  { value: "healthcare", label: "Saúde" },
+  { value: "recurring", label: "Pagamento Recorrente" },
+  { value: "other", label: "Outro" },
 ];
 
 const TransactionForm: React.FC<TransactionFormProps> = ({
@@ -214,13 +214,13 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       setIncomeCategories((prev) => [
         ...prev.filter((cat) => cat.value !== "other"),
         newCategory,
-        { value: "other", label: "Other" },
+        { value: "other", label: "Outro" },
       ]);
     } else {
       setExpenseCategories((prev) => [
         ...prev.filter((cat) => cat.value !== "other"),
         newCategory,
-        { value: "other", label: "Other" },
+        { value: "other", label: "Outro" },
       ]);
     }
 
@@ -233,7 +233,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     <Card className="w-full max-w-md mx-auto bg-background">
       <CardHeader>
         <CardTitle className="text-xl font-semibold text-center">
-          Add Transaction
+          Nova Transação
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -246,232 +246,198 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           }}
           className="w-full"
         >
-          <TabsList className="grid grid-cols-2 mb-4">
-            <TabsTrigger value="income">Income</TabsTrigger>
-            <TabsTrigger value="expense">Expense</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="income">Receita</TabsTrigger>
+            <TabsTrigger value="expense">Despesa</TabsTrigger>
           </TabsList>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Date Picker */}
-            <div className="space-y-2">
-              <Label htmlFor="date">Date</Label>
-              <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start text-left font-normal"
-                    id="date"
-                    type="button"
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {date ? format(date, "PPP") : <span>Pick a date</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={date}
-                    onSelect={(newDate) => {
-                      if (newDate) {
-                        console.log('Date selected:', newDate);
-                        setDate(newDate);
-                        setIsCalendarOpen(false);
-                      }
-                    }}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            {/* Description */}
-            <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                placeholder="Enter transaction description"
-                value={description}
-                onChange={(e) => {
-                  console.log('Description changed:', e.target.value);
-                  setDescription(e.target.value);
-                }}
-                className="resize-none"
-              />
-            </div>
-
-            {/* Amount */}
-            <div className="space-y-2">
-              <Label htmlFor="amount">Amount</Label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2">
-                  $
-                </span>
-                <Input
-                  id="amount"
-                  type="text"
-                  placeholder="0.00"
-                  value={amount}
+          <form onSubmit={handleSubmit} className="space-y-4 mt-6">
+            <div className="grid gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="description">Descrição</Label>
+                <Textarea
+                  id="description"
+                  placeholder="Digite a descrição"
+                  value={description}
                   onChange={(e) => {
-                    console.log('Amount changed:', e.target.value);
-                    handleAmountChange(e);
+                    console.log('Description changed:', e.target.value);
+                    setDescription(e.target.value);
                   }}
-                  className="pl-7"
                 />
               </div>
-            </div>
 
-            {/* Category */}
-            <div className="space-y-2">
-              <Label htmlFor="category">Category</Label>
-              <Select 
-                value={category} 
-                onValueChange={(value) => {
-                  console.log('Category changed:', value);
-                  handleCategoryChange(value);
-                }}
-              >
-                <SelectTrigger id="category">
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((cat) => (
-                    <SelectItem key={cat.value} value={cat.value}>
-                      {cat.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Recurring Payment Fields */}
-            {isRecurring && (
-              <div className="space-y-4 border rounded-md p-4 bg-muted/20">
-                <h3 className="font-medium">Recurring Payment Details</h3>
-
-                {/* Start Date */}
-                <div className="space-y-2">
-                  <Label htmlFor="recurringStartDate">Start Date</Label>
-                  <Popover
-                    open={isStartDateCalendarOpen}
-                    onOpenChange={setIsStartDateCalendarOpen}
-                  >
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className="w-full justify-start text-left font-normal"
-                        id="recurringStartDate"
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {recurringStartDate ? (
-                          format(recurringStartDate, "PPP")
-                        ) : (
-                          <span>Pick a start date</span>
-                        )}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={recurringStartDate}
-                        onSelect={(newDate) => {
-                          if (newDate) {
-                            setRecurringStartDate(newDate);
-                            setIsStartDateCalendarOpen(false);
-                          }
-                        }}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-
-                {/* End Date */}
-                <div className="space-y-2">
-                  <Label htmlFor="recurringEndDate">End Date</Label>
-                  <Popover
-                    open={isEndDateCalendarOpen}
-                    onOpenChange={setIsEndDateCalendarOpen}
-                  >
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className="w-full justify-start text-left font-normal"
-                        id="recurringEndDate"
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {recurringEndDate ? (
-                          format(recurringEndDate, "PPP")
-                        ) : (
-                          <span>Pick an end date</span>
-                        )}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={recurringEndDate}
-                        onSelect={(newDate) => {
-                          if (newDate) {
-                            setRecurringEndDate(newDate);
-                            setIsEndDateCalendarOpen(false);
-                          }
-                        }}
-                        initialFocus
-                        disabled={(date) => date < recurringStartDate}
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
+              <div className="grid gap-2">
+                <Label htmlFor="amount">Valor</Label>
+                <Input
+                  id="amount"
+                  placeholder="0,00"
+                  value={amount}
+                  onChange={handleAmountChange}
+                />
               </div>
-            )}
 
-            {/* Submit Button */}
-            <Button 
-              type="submit" 
-              className="w-full"
-              onClick={() => console.log('Submit button clicked')}
-            >
-              Add {transactionType === "income" ? "Income" : "Expense"}
+              <div className="grid gap-2">
+                <Label htmlFor="category">Categoria</Label>
+                <Select value={category} onValueChange={handleCategoryChange}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione uma categoria" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((cat) => (
+                      <SelectItem key={cat.value} value={cat.value}>
+                        {cat.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid gap-2">
+                <Label>Data</Label>
+                <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !date && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {date ? format(date, "dd/MM/yyyy") : "Selecione uma data"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar
+                      mode="single"
+                      selected={date}
+                      onSelect={(date) => {
+                        setDate(date || new Date());
+                        setIsCalendarOpen(false);
+                      }}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="recurring"
+                  checked={isRecurring}
+                  onChange={(e) => setIsRecurring(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300"
+                />
+                <Label htmlFor="recurring">Pagamento Recorrente</Label>
+              </div>
+
+              {isRecurring && (
+                <div className="grid gap-4">
+                  <div className="grid gap-2">
+                    <Label>Data de Início</Label>
+                    <Popover
+                      open={isStartDateCalendarOpen}
+                      onOpenChange={setIsStartDateCalendarOpen}
+                    >
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !recurringStartDate && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {recurringStartDate
+                            ? format(recurringStartDate, "dd/MM/yyyy")
+                            : "Selecione uma data"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <Calendar
+                          mode="single"
+                          selected={recurringStartDate}
+                          onSelect={(date) => {
+                            setRecurringStartDate(date || new Date());
+                            setIsStartDateCalendarOpen(false);
+                          }}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label>Data de Término</Label>
+                    <Popover
+                      open={isEndDateCalendarOpen}
+                      onOpenChange={setIsEndDateCalendarOpen}
+                    >
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !recurringEndDate && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {recurringEndDate
+                            ? format(recurringEndDate, "dd/MM/yyyy")
+                            : "Selecione uma data"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <Calendar
+                          mode="single"
+                          selected={recurringEndDate}
+                          onSelect={(date) => {
+                            setRecurringEndDate(date || new Date());
+                            setIsEndDateCalendarOpen(false);
+                          }}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <Button type="submit" className="w-full">
+              <Plus className="mr-2 h-4 w-4" /> Adicionar Transação
             </Button>
           </form>
         </Tabs>
 
-        {/* New Category Dialog */}
         <Dialog
           open={isNewCategoryDialogOpen}
           onOpenChange={setIsNewCategoryDialogOpen}
         >
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Add New Category</DialogTitle>
+              <DialogTitle>Nova Categoria</DialogTitle>
             </DialogHeader>
-            <div className="py-4">
-              <Label htmlFor="newCategory">Category Name</Label>
-              <Input
-                id="newCategory"
-                value={newCategoryName}
-                onChange={(e) => setNewCategoryName(e.target.value)}
-                placeholder="Enter new category name"
-                className="mt-2"
-                autoFocus
-              />
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="newCategory">Nome da Categoria</Label>
+                <Input
+                  id="newCategory"
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  placeholder="Digite o nome da categoria"
+                />
+              </div>
             </div>
             <DialogFooter>
               <Button
                 variant="outline"
-                onClick={() => {
-                  setNewCategoryName("");
-                  setIsNewCategoryDialogOpen(false);
-                }}
+                onClick={() => setIsNewCategoryDialogOpen(false)}
               >
-                Cancel
+                Cancelar
               </Button>
-              <Button
-                onClick={handleAddNewCategory}
-                disabled={!newCategoryName.trim()}
-              >
-                <Plus className="mr-2 h-4 w-4" /> Add Category
-              </Button>
+              <Button onClick={handleAddNewCategory}>Adicionar</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

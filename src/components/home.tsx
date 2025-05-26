@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { ChevronLeft, ChevronRight, User, LogOut } from "lucide-react";
-import { format } from "date-fns";
+import { format, subMonths, addMonths, isSameMonth } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { Link } from "react-router-dom";
 
 import { Button } from "./ui/button";
-import { Card, CardContent } from "./ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,6 +36,9 @@ const Home = () => {
   const { user } = useAuth();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedDate, setSelectedDate] = useState(new Date());
+
+  const isCurrentMonth = isSameMonth(selectedDate, new Date());
 
   // Carregar transações quando o componente montar
   useEffect(() => {
@@ -72,34 +76,57 @@ const Home = () => {
     }
   };
 
-  // Calculate metrics for the current month
-  const currentMonthTransactions = transactions.filter((transaction) => {
+  // Calculate metrics for the selected month
+  const selectedMonthTransactions = transactions.filter((transaction) => {
     const transactionDate = new Date(transaction.date);
     return (
-      transactionDate.getMonth() === new Date().getMonth() &&
-      transactionDate.getFullYear() === new Date().getFullYear()
+      transactionDate.getMonth() === selectedDate.getMonth() &&
+      transactionDate.getFullYear() === selectedDate.getFullYear()
     );
   });
 
-  const totalIncome = currentMonthTransactions
+  // Calculate metrics for the previous month
+  const previousMonthDate = subMonths(selectedDate, 1);
+  const previousMonthTransactions = transactions.filter((transaction) => {
+    const transactionDate = new Date(transaction.date);
+    return (
+      transactionDate.getMonth() === previousMonthDate.getMonth() &&
+      transactionDate.getFullYear() === previousMonthDate.getFullYear()
+    );
+  });
+
+  const selectedMonthIncome = selectedMonthTransactions
     .filter((t) => t.type === "income")
     .reduce((sum, transaction) => sum + transaction.amount, 0);
 
-  const totalExpenses = currentMonthTransactions
+  const selectedMonthExpenses = selectedMonthTransactions
     .filter((t) => t.type === "expense")
     .reduce((sum, transaction) => sum + transaction.amount, 0);
 
-  const currentBalance = totalIncome - totalExpenses;
+  const selectedMonthBalance = selectedMonthIncome - selectedMonthExpenses;
+
+  const previousMonthIncome = previousMonthTransactions
+    .filter((t) => t.type === "income")
+    .reduce((sum, transaction) => sum + transaction.amount, 0);
+
+  const previousMonthExpenses = previousMonthTransactions
+    .filter((t) => t.type === "expense")
+    .reduce((sum, transaction) => sum + transaction.amount, 0);
+
+  const previousMonthBalance = previousMonthIncome - previousMonthExpenses;
+
+  // Calculate variations
+  const incomeVariation = previousMonthIncome === 0 ? 0 : ((selectedMonthIncome - previousMonthIncome) / previousMonthIncome) * 100;
+  const expensesVariation = previousMonthExpenses === 0 ? 0 : ((selectedMonthExpenses - previousMonthExpenses) / previousMonthExpenses) * 100;
+  const balanceVariation = previousMonthBalance === 0 ? 0 : ((selectedMonthBalance - previousMonthBalance) / previousMonthBalance) * 100;
 
   // Handle month navigation
   const goToPreviousMonth = () => {
-    const prevMonth = new Date(new Date());
-    prevMonth.setMonth(prevMonth.getMonth() - 1);
+    setSelectedDate(prevDate => subMonths(prevDate, 1));
   };
 
   const goToNextMonth = () => {
-    const nextMonth = new Date(new Date());
-    nextMonth.setMonth(nextMonth.getMonth() + 1);
+    setSelectedDate(prevDate => addMonths(prevDate, 1));
   };
 
   // Handle adding new transactions
@@ -203,82 +230,132 @@ const Home = () => {
     }
   };
 
+  // Combine current and previous month transactions
+  const combinedTransactions = [...selectedMonthTransactions, ...previousMonthTransactions].sort((a, b) => {
+    return new Date(b.date).getTime() - new Date(a.date).getTime();
+  });
+
   return (
-    <div className="container mx-auto px-4 py-8 bg-background min-h-screen">
-      {/* Month Navigation */}
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold">Financial Dashboard</h1>
-        <div className="flex items-center space-x-4">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon" className="rounded-full">
-                <User className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem asChild>
-                <Link
-                  to="/profile"
-                  className="flex items-center gap-2 cursor-pointer"
-                >
-                  <User className="h-4 w-4" />
-                  <span>Profile</span>
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => logout()}
-                className="flex items-center gap-2 cursor-pointer"
-              >
-                <LogOut className="h-4 w-4" />
-                <span>Logout</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <Button variant="outline" size="icon" onClick={goToPreviousMonth}>
+    <div className="container mx-auto p-4 space-y-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold">Dashboard</h1>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={goToPreviousMonth}
+          >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <h2 className="text-xl font-medium">
-            {format(new Date(), "MMMM yyyy")}
-          </h2>
-          <Button variant="outline" size="icon" onClick={goToNextMonth}>
+          <span className="font-medium">
+            {format(selectedDate, "MMMM 'de' yyyy", { locale: ptBR })}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={goToNextMonth}
+            disabled={isCurrentMonth}
+          >
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
       </div>
 
-      {/* Metrics Overview */}
-      <Card className="mb-8">
-        <CardContent className="p-6">
-          <MetricsOverview
-            income={totalIncome}
-            expenses={totalExpenses}
-            balance={currentBalance}
-          />
-        </CardContent>
-      </Card>
-
-      {/* Transaction Form */}
-      <div className="mb-8">
-        <h2 className="text-2xl font-semibold mb-4">Add New Transaction</h2>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Receitas */}
         <Card>
-          <CardContent className="p-6">
-            <TransactionForm onSubmit={handleAddTransaction} />
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Receitas
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <div className="flex justify-between items-baseline">
+                <span className="text-2xl font-bold text-green-600">
+                  R$ {selectedMonthIncome.toFixed(2)}
+                </span>
+                <div className="flex items-center gap-1 text-sm">
+                  <span className={incomeVariation >= 0 ? "text-green-600" : "text-red-600"}>
+                    {incomeVariation >= 0 ? "+" : ""}{incomeVariation.toFixed(1)}%
+                  </span>
+                  <span className="text-muted-foreground">vs mês anterior</span>
+                </div>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                Mês anterior: R$ {previousMonthIncome.toFixed(2)}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Despesas */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Despesas
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <div className="flex justify-between items-baseline">
+                <span className="text-2xl font-bold text-red-600">
+                  R$ {selectedMonthExpenses.toFixed(2)}
+                </span>
+                <div className="flex items-center gap-1 text-sm">
+                  <span className={expensesVariation <= 0 ? "text-green-600" : "text-red-600"}>
+                    {expensesVariation >= 0 ? "+" : ""}{expensesVariation.toFixed(1)}%
+                  </span>
+                  <span className="text-muted-foreground">vs mês anterior</span>
+                </div>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                Mês anterior: R$ {previousMonthExpenses.toFixed(2)}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Saldo */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Saldo
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <div className="flex justify-between items-baseline">
+                <span className={`text-2xl font-bold ${selectedMonthBalance >= 0 ? "text-green-600" : "text-red-600"}`}>
+                  R$ {selectedMonthBalance.toFixed(2)}
+                </span>
+                <div className="flex items-center gap-1 text-sm">
+                  <span className={balanceVariation >= 0 ? "text-green-600" : "text-red-600"}>
+                    {balanceVariation >= 0 ? "+" : ""}{balanceVariation.toFixed(1)}%
+                  </span>
+                  <span className="text-muted-foreground">vs mês anterior</span>
+                </div>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                Mês anterior: R$ {previousMonthBalance.toFixed(2)}
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Transaction List */}
-      <div>
-        <h2 className="text-2xl font-semibold mb-4">Transactions</h2>
-        <Card>
-          <CardContent className="p-6">
-            <TransactionList
-              transactions={currentMonthTransactions}
-              onEdit={handleEditTransaction}
-              onDelete={handleDeleteTransaction}
-            />
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="md:col-span-1">
+          <TransactionForm onSubmit={handleAddTransaction} />
+        </div>
+        <div className="md:col-span-2">
+          <TransactionList
+            transactions={combinedTransactions}
+            onEdit={handleEditTransaction}
+            onDelete={handleDeleteTransaction}
+            selectedDate={selectedDate}
+          />
+        </div>
       </div>
     </div>
   );
