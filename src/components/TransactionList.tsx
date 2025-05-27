@@ -100,6 +100,21 @@ interface TransactionListProps {
   selectedDate: Date;
 }
 
+const categoryTranslations: Record<string, string> = {
+  salary: "Salário",
+  freelance: "Freelance",
+  investment: "Investimento",
+  gift: "Presente",
+  other: "Outro",
+  housing: "Moradia",
+  food: "Alimentação",
+  transportation: "Transporte",
+  entertainment: "Lazer",
+  utilities: "Contas",
+  healthcare: "Saúde",
+  recurring: "Pagamento Recorrente"
+};
+
 const TransactionList: React.FC<TransactionListProps> = ({
   transactions,
   onTransactionDeleted,
@@ -328,7 +343,7 @@ const TransactionList: React.FC<TransactionListProps> = ({
                             variant={type === "income" ? "default" : "destructive"}
                             className={type === "income" ? "bg-green-600 hover:bg-green-700" : ""}
                           >
-                            {category}
+                            {categoryTranslations[category] || category}
                           </Badge>
                           <span className="text-sm text-muted-foreground">
                             {transactions.length} {transactions.length === 1 ? "transação" : "transações"}
