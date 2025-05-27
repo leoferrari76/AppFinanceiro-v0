@@ -21,6 +21,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import TransactionForm from "@/components/TransactionForm";
 import TransactionList from "@/components/TransactionList";
@@ -36,6 +37,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { supabase } from "@/lib/supabase";
 
 interface Transaction {
   id: string;
@@ -58,6 +60,11 @@ const Home = () => {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
+  const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
 
   const isCurrentMonth = isSameMonth(selectedDate, new Date());
 
@@ -314,6 +321,68 @@ const Home = () => {
     }
   };
 
+  const handleShareGroup = (groupId: string) => {
+    setSelectedGroupId(groupId);
+    setIsAddMemberModalOpen(true);
+  };
+
+  const handleSearchUsers = async (searchTerm: string) => {
+    if (!searchTerm.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const { data: users, error } = await supabase
+        .from('profiles')
+        .select('id, email, full_name')
+        .or(`email.ilike.%${searchTerm}%,full_name.ilike.%${searchTerm}%`)
+        .limit(5);
+
+      if (error) throw error;
+
+      setSearchResults(users || []);
+    } catch (error) {
+      console.error('Erro ao buscar usuários:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível buscar usuários",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleAddMember = async (userId: string) => {
+    if (!selectedGroupId) return;
+
+    try {
+      const { error } = await supabase
+        .from('group_members')
+        .insert([{ group_id: selectedGroupId, user_id: userId, role: 'member' }]);
+
+      if (error) throw error;
+
+      toast({
+        title: "Sucesso",
+        description: "Membro adicionado com sucesso",
+      });
+
+      setIsAddMemberModalOpen(false);
+      setSearchTerm("");
+      setSearchResults([]);
+    } catch (error) {
+      console.error('Erro ao adicionar membro:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível adicionar o membro",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="container mx-auto p-4 space-y-8 bg-background min-h-screen">
       {isLoading ? (
@@ -482,7 +551,7 @@ const Home = () => {
             </TabsContent>
 
             <TabsContent value="shared" className="space-y-4">
-              <FinancialGroup userId={user?.id} />
+              <FinancialGroup userId={user.id} onShareGroup={handleShareGroup} />
             </TabsContent>
           </Tabs>
         </>
@@ -498,6 +567,52 @@ const Home = () => {
             onTransactionAdded={handleAddTransaction}
             defaultDate={selectedDate}
           />
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Adicionar Membro */}
+      <Dialog open={isAddMemberModalOpen} onOpenChange={setIsAddMemberModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Adicionar Membro ao Grupo</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Buscar Usuário</label>
+              <Input
+                placeholder="Digite o nome ou email do usuário"
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  handleSearchUsers(e.target.value);
+                }}
+              />
+            </div>
+
+            {isSearching ? (
+              <div className="flex items-center justify-center py-4">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {searchResults.map((user) => (
+                  <div
+                    key={user.id}
+                    className="flex items-center justify-between p-2 rounded-lg hover:bg-accent cursor-pointer"
+                    onClick={() => handleAddMember(user.id)}
+                  >
+                    <div>
+                      <p className="font-medium">{user.full_name || 'Usuário'}</p>
+                      <p className="text-sm text-muted-foreground">{user.email}</p>
+                    </div>
+                    <Button variant="ghost" size="sm">
+                      Adicionar
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>
