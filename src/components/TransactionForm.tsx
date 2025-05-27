@@ -265,90 +265,122 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   };
 
   return (
-    <Card className="w-full max-w-md mx-auto bg-background">
-      <CardHeader>
-        <CardTitle className="text-xl font-semibold text-center">
-          {"Nova Transação"}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Tabs
-          defaultValue="income"
-          value={transactionType}
-          onValueChange={(value) => {
-            console.log('Transaction type changed:', value);
-            setTransactionType(value as "income" | "expense");
-          }}
-          className="w-full"
-        >
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="income">Receita</TabsTrigger>
-            <TabsTrigger value="expense">Despesa</TabsTrigger>
-          </TabsList>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <Tabs
+        defaultValue="income"
+        value={transactionType}
+        onValueChange={(value) => {
+          console.log('Transaction type changed:', value);
+          setTransactionType(value as "income" | "expense");
+        }}
+        className="w-full"
+      >
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="income">Receita</TabsTrigger>
+          <TabsTrigger value="expense">Despesa</TabsTrigger>
+        </TabsList>
 
-          <form onSubmit={handleSubmit} className="space-y-4 mt-6">
-            <div className="grid gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="description">Descrição</Label>
-                <Textarea
-                  id="description"
-                  placeholder="Digite a descrição"
-                  value={description}
-                  onChange={(e) => {
-                    console.log('Description changed:', e.target.value);
-                    setDescription(e.target.value);
+        <div className="space-y-4 mt-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Categoria</Label>
+              <Select value={category} onValueChange={handleCategoryChange}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione uma categoria" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(transactionType === "income" ? incomeCategories : expenseCategories).map((cat) => (
+                    <SelectItem key={cat.value} value={cat.value}>
+                      {cat.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Valor</Label>
+              <Input
+                type="text"
+                value={amount}
+                onChange={handleAmountChange}
+                placeholder="0,00"
+                className="text-right"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Descrição</Label>
+            <Textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Digite a descrição"
+            />
+          </div>
+
+          <div className="grid gap-2">
+            <Label>Data</Label>
+            <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-full justify-start text-left font-normal",
+                    !date && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {date ? format(date, "dd/MM/yyyy") : "Selecione uma data"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0">
+                <Calendar
+                  mode="single"
+                  selected={date}
+                  onSelect={(date) => {
+                    setDate(date || new Date());
+                    setIsCalendarOpen(false);
                   }}
+                  initialFocus
                 />
-              </div>
+              </PopoverContent>
+            </Popover>
+          </div>
 
-              <div className="grid gap-2">
-                <Label htmlFor="amount">Valor</Label>
-                <Input
-                  id="amount"
-                  placeholder="0,00"
-                  value={amount}
-                  onChange={handleAmountChange}
-                />
-              </div>
+          <div className="flex items-center space-x-2">
+            <Switch
+              id="recurring"
+              checked={isRecurring}
+              onCheckedChange={setIsRecurring}
+            />
+            <Label htmlFor="recurring">Pagamento Recorrente</Label>
+          </div>
 
-              <div className="grid gap-2">
-                <Label htmlFor="category">Categoria</Label>
-                <Select value={category} onValueChange={handleCategoryChange}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione uma categoria" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((cat) => (
-                      <SelectItem key={cat.value} value={cat.value}>
-                        {cat.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="grid gap-2">
-                <Label>Data</Label>
-                <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+          {isRecurring && (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Data de Início</Label>
+                <Popover open={isStartDateCalendarOpen} onOpenChange={setIsStartDateCalendarOpen}>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
                       className={cn(
                         "w-full justify-start text-left font-normal",
-                        !date && "text-muted-foreground"
+                        !recurringStartDate && "text-muted-foreground"
                       )}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {date ? format(date, "dd/MM/yyyy") : "Selecione uma data"}
+                      {recurringStartDate ? format(recurringStartDate, "dd/MM/yyyy") : "Selecione uma data"}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0">
                     <Calendar
                       mode="single"
-                      selected={date}
+                      selected={recurringStartDate}
                       onSelect={(date) => {
-                        setDate(date || new Date());
-                        setIsCalendarOpen(false);
+                        setRecurringStartDate(date || new Date());
+                        setIsStartDateCalendarOpen(false);
                       }}
                       initialFocus
                     />
@@ -356,150 +388,96 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                 </Popover>
               </div>
 
-              <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  id="recurring"
-                  checked={isRecurring}
-                  onChange={(e) => setIsRecurring(e.target.checked)}
-                  className="h-4 w-4 rounded border-gray-300"
-                />
-                <Label htmlFor="recurring">Pagamento Recorrente</Label>
-              </div>
-
-              {isRecurring && (
-                <div className="grid gap-4">
-                  <div className="grid gap-2">
-                    <Label>Data de Início</Label>
-                    <Popover
-                      open={isStartDateCalendarOpen}
-                      onOpenChange={setIsStartDateCalendarOpen}
-                    >
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            "w-full justify-start text-left font-normal",
-                            !recurringStartDate && "text-muted-foreground"
-                          )}
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {recurringStartDate
-                            ? format(recurringStartDate, "dd/MM/yyyy")
-                            : "Selecione uma data"}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0">
-                        <Calendar
-                          mode="single"
-                          selected={recurringStartDate}
-                          onSelect={(date) => {
-                            setRecurringStartDate(date || new Date());
-                            setIsStartDateCalendarOpen(false);
-                          }}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-
-                  <div className="grid gap-2">
-                    <Label>Data de Término</Label>
-                    <Popover
-                      open={isEndDateCalendarOpen}
-                      onOpenChange={setIsEndDateCalendarOpen}
-                    >
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            "w-full justify-start text-left font-normal",
-                            !recurringEndDate && "text-muted-foreground"
-                          )}
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {recurringEndDate
-                            ? format(recurringEndDate, "dd/MM/yyyy")
-                            : "Selecione uma data"}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0">
-                        <Calendar
-                          mode="single"
-                          selected={recurringEndDate}
-                          onSelect={(date) => {
-                            setRecurringEndDate(date || new Date());
-                            setIsEndDateCalendarOpen(false);
-                          }}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                </div>
-              )}
-
               <div className="space-y-2">
-                <Label>Grupo Financeiro (opcional)</Label>
-                <Select
-                  value={selectedGroup}
-                  onValueChange={setSelectedGroup}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione um grupo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="no_group">Nenhum grupo</SelectItem>
-                    {groups.map((group) => (
-                      <SelectItem key={group.id} value={group.id}>
-                        {group.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>Data de Término</Label>
+                <Popover open={isEndDateCalendarOpen} onOpenChange={setIsEndDateCalendarOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !recurringEndDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {recurringEndDate ? format(recurringEndDate, "dd/MM/yyyy") : "Selecione uma data"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar
+                      mode="single"
+                      selected={recurringEndDate}
+                      onSelect={(date) => {
+                        setRecurringEndDate(date || new Date());
+                        setIsEndDateCalendarOpen(false);
+                      }}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
+          )}
 
-            <div className="flex gap-2">
-              <Button type="submit" className="flex-1">
-                {"Adicionar"}
-              </Button>
-            </div>
-          </form>
-        </Tabs>
+          <div className="space-y-2">
+            <Label>Grupo Financeiro (opcional)</Label>
+            <Select
+              value={selectedGroup}
+              onValueChange={setSelectedGroup}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione um grupo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="no_group">Nenhum grupo</SelectItem>
+                {groups.map((group) => (
+                  <SelectItem key={group.id} value={group.id}>
+                    {group.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </Tabs>
 
-        <Dialog
-          open={isNewCategoryDialogOpen}
-          onOpenChange={setIsNewCategoryDialogOpen}
-        >
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Nova Categoria</DialogTitle>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="newCategory">Nome da Categoria</Label>
-                <Input
-                  id="newCategory"
-                  value={newCategoryName}
-                  onChange={(e) => setNewCategoryName(e.target.value)}
-                  placeholder="Digite o nome da categoria"
-                />
-              </div>
+      <Dialog
+        open={isNewCategoryDialogOpen}
+        onOpenChange={setIsNewCategoryDialogOpen}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nova Categoria</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="newCategory">Nome da Categoria</Label>
+              <Input
+                id="newCategory"
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                placeholder="Digite o nome da categoria"
+              />
             </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setIsNewCategoryDialogOpen(false)}
-              >
-                Cancelar
-              </Button>
-              <Button onClick={handleAddNewCategory}>Adicionar</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </CardContent>
-    </Card>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsNewCategoryDialogOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={handleAddNewCategory}>Adicionar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <DialogFooter>
+        <Button type="submit" className="w-full">
+          Adicionar Transação
+        </Button>
+      </DialogFooter>
+    </form>
   );
 };
 

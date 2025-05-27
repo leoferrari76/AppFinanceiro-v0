@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
 import { format, subMonths, isSameMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { AlertCircle, TrendingUp, TrendingDown, Lightbulb } from "lucide-react";
+import { AlertCircle, TrendingUp, TrendingDown, Lightbulb, AlertTriangle, Info } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
@@ -146,73 +146,30 @@ const FinancialInsights: React.FC<FinancialInsightsProps> = ({
   }
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle className="text-lg font-semibold">Insights Financeiros</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {insights.map((insight, index) => (
-            <div
-              key={index}
-              className={`flex flex-col p-4 rounded-lg border ${
-                insight.type === "alert"
-                  ? "border-red-200 bg-red-50"
-                  : insight.type === "warning"
-                  ? "border-yellow-200 bg-yellow-50"
-                  : insight.type === "success"
-                  ? "border-green-200 bg-green-50"
-                  : "border-blue-200 bg-blue-50"
-              }`}
-            >
-              <div className="flex items-center gap-2 mb-2">
-                <div
-                  className={`p-2 rounded-full ${
-                    insight.type === "alert"
-                      ? "bg-red-100 text-red-600"
-                      : insight.type === "warning"
-                      ? "bg-yellow-100 text-yellow-600"
-                      : insight.type === "success"
-                      ? "bg-green-100 text-green-600"
-                      : "bg-blue-100 text-blue-600"
-                  }`}
-                >
-                  <insight.icon className="h-5 w-5" />
-                </div>
-                <h3 className="font-medium text-sm md:text-base break-words">{insight.title}</h3>
-              </div>
-              <div className="flex items-center gap-2 mb-2">
-                <Badge
-                  variant={
-                    insight.type === "alert"
-                      ? "destructive"
-                      : insight.type === "warning"
-                      ? "outline"
-                      : "default"
-                  }
-                  className={
-                    insight.type === "success"
-                      ? "bg-green-600 hover:bg-green-700"
-                      : ""
-                  }
-                >
-                  {insight.type === "alert"
-                    ? "Alerta"
-                    : insight.type === "warning"
-                    ? "Atenção"
-                    : insight.type === "success"
-                    ? "Sucesso"
-                    : "Sugestão"}
-                </Badge>
-              </div>
-              <p className="text-xs md:text-sm text-muted-foreground break-words">
-                {insight.description}
-              </p>
-            </div>
-          ))}
+    <div className="space-y-4">
+      {insights.map((insight, index) => (
+        <div
+          key={index}
+          className="flex items-start gap-3 p-4 rounded-lg bg-muted/50"
+        >
+          <div className="mt-1">
+            {insight.type === "warning" ? (
+              <AlertTriangle className="h-5 w-5 text-yellow-600" />
+            ) : insight.type === "success" ? (
+              <Info className="h-5 w-5 text-green-600" />
+            ) : (
+              <AlertCircle className="h-5 w-5 text-red-600" />
+            )}
+          </div>
+          <div className="flex-1">
+            <h3 className="font-medium text-sm md:text-base break-words">{insight.title}</h3>
+            <p className="text-xs md:text-sm text-muted-foreground break-words">
+              {insight.description}
+            </p>
+          </div>
         </div>
-      </CardContent>
-    </Card>
+      ))}
+    </div>
   );
 };
 

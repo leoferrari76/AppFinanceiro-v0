@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { ChevronLeft, ChevronRight, User, LogOut, Calendar as CalendarIcon, Search, Users } from "lucide-react";
+import { ChevronLeft, ChevronRight, User, LogOut, Calendar as CalendarIcon, Search, Users, Plus } from "lucide-react";
 import { format, subMonths, addMonths, isSameMonth, startOfMonth, endOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Link, useNavigate } from "react-router-dom";
@@ -57,6 +57,7 @@ const Home = () => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
 
   const isCurrentMonth = isSameMonth(selectedDate, new Date());
 
@@ -177,41 +178,37 @@ const Home = () => {
   };
 
   // Handle adding new transactions
-  const handleAddTransaction = async (newTransaction: Omit<Transaction, "id">) => {
+  const handleAddTransaction = async (transaction: Omit<Transaction, "id">) => {
     if (!user) return;
 
     try {
-      console.log('Adding new transaction:', newTransaction);
-      const transaction = await createTransaction({
-        ...newTransaction,
-        user_id: user.id,
-        date: newTransaction.date.toISOString().split('T')[0],
-        is_recurring: newTransaction.is_recurring || false,
-        recurring_start_date: newTransaction.recurring_start_date?.toISOString().split('T')[0],
-        recurring_end_date: newTransaction.recurring_end_date?.toISOString().split('T')[0],
-      });
-      
-      console.log('Transaction created:', transaction);
-      
-      // Atualizar a lista de transações imediatamente
-      const formattedTransaction = {
+      const savedTransaction = await createTransaction({
         ...transaction,
-        date: new Date(transaction.date),
-        recurring_start_date: transaction.recurring_start_date ? new Date(transaction.recurring_start_date) : undefined,
-        recurring_end_date: transaction.recurring_end_date ? new Date(transaction.recurring_end_date) : undefined,
-      };
-      
-      setTransactions(prevTransactions => [formattedTransaction, ...prevTransactions]);
+        user_id: user.id,
+        date: transaction.date.toISOString().split('T')[0],
+        is_recurring: transaction.is_recurring || false,
+        recurring_start_date: transaction.recurring_start_date?.toISOString().split('T')[0],
+        recurring_end_date: transaction.recurring_end_date?.toISOString().split('T')[0],
+      });
 
+      const formattedTransaction = {
+        ...savedTransaction,
+        date: new Date(savedTransaction.date),
+        recurring_start_date: savedTransaction.recurring_start_date ? new Date(savedTransaction.recurring_start_date) : undefined,
+        recurring_end_date: savedTransaction.recurring_end_date ? new Date(savedTransaction.recurring_end_date) : undefined,
+      };
+
+      setTransactions((prev) => [formattedTransaction, ...prev]);
+      setIsTransactionModalOpen(false);
       toast({
         title: "Sucesso",
-        description: "Transação adicionada com sucesso.",
+        description: "Transação adicionada com sucesso",
       });
     } catch (error) {
-      console.error('Error adding transaction:', error);
+      console.error("Erro ao adicionar transação:", error);
       toast({
         title: "Erro",
-        description: "Não foi possível adicionar a transação.",
+        description: "Não foi possível adicionar a transação",
         variant: "destructive",
       });
     }
@@ -219,9 +216,12 @@ const Home = () => {
 
   // Handle editing transactions
   const handleEditTransaction = async (updatedTransaction: Transaction) => {
+    if (!user) return;
+    
     try {
-      const transaction = await updateTransaction(updatedTransaction.id, {
+      const transaction = await updateTransaction({
         ...updatedTransaction,
+        user_id: user.id,
         date: updatedTransaction.date.toISOString().split('T')[0],
         recurring_start_date: updatedTransaction.recurring_start_date?.toISOString().split('T')[0],
         recurring_end_date: updatedTransaction.recurring_end_date?.toISOString().split('T')[0],
@@ -373,16 +373,25 @@ const Home = () => {
           </div>
 
           <Tabs defaultValue="personal" className="space-y-4">
-            <TabsList>
-              <TabsTrigger value="personal" className="gap-2">
-                <CalendarIcon className="h-4 w-4" />
-                Pessoal
-              </TabsTrigger>
-              <TabsTrigger value="shared" className="gap-2">
-                <Users className="h-4 w-4" />
-                Compartilhado
-              </TabsTrigger>
-            </TabsList>
+            <div className="flex items-center justify-between">
+              <TabsList>
+                <TabsTrigger value="personal" className="gap-2">
+                  <CalendarIcon className="h-4 w-4" />
+                  Pessoal
+                </TabsTrigger>
+                <TabsTrigger value="shared" className="gap-2">
+                  <Users className="h-4 w-4" />
+                  Compartilhado
+                </TabsTrigger>
+              </TabsList>
+              <Button 
+                onClick={() => setIsTransactionModalOpen(true)}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Nova Transação
+              </Button>
+            </div>
 
             <TabsContent value="personal" className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -455,26 +464,20 @@ const Home = () => {
                 </Card>
               </div>
 
-              <FinancialInsights
-                transactions={transactions}
-                selectedDate={selectedDate}
-              />
+              <div className="px-4 md:px-8">
+                <FinancialInsights
+                  transactions={transactions}
+                  selectedDate={selectedDate}
+                />
+              </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                <div className="lg:col-span-1">
-                  <TransactionForm
-                    onTransactionAdded={handleAddTransaction}
-                    defaultDate={selectedDate}
-                  />
-                </div>
-                <div className="lg:col-span-2">
-                  <TransactionList
-                    transactions={selectedMonthTransactions}
-                    onTransactionDeleted={handleDeleteTransaction}
-                    onTransactionUpdated={handleEditTransaction}
-                    selectedDate={selectedDate}
-                  />
-                </div>
+              <div className="px-4 md:px-8 pb-8">
+                <TransactionList
+                  transactions={transactions}
+                  onTransactionUpdated={handleEditTransaction}
+                  onTransactionDeleted={handleDeleteTransaction}
+                  selectedDate={selectedDate}
+                />
               </div>
             </TabsContent>
 
@@ -484,6 +487,19 @@ const Home = () => {
           </Tabs>
         </>
       )}
+
+      {/* Modal de Nova Transação */}
+      <Dialog open={isTransactionModalOpen} onOpenChange={setIsTransactionModalOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Nova Transação</DialogTitle>
+          </DialogHeader>
+          <TransactionForm
+            onTransactionAdded={handleAddTransaction}
+            defaultDate={selectedDate}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
